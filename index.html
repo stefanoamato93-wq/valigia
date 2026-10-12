@@ -179,7 +179,12 @@
   .cat-edit, .cat-del { display: none; background: none; border: none; font-size: 16px; padding: 4px 6px; line-height: 1; }
   .cat-edit { color: var(--brand); }
   .cat-del { color: var(--danger); }
-  body.edit .cat-edit, body.edit .cat-del { display: inline-block; }
+  .cat-ord {
+    display: none; background: none; border: none; color: var(--cat-accent, var(--brand));
+    font-size: 15px; font-weight: 700; padding: 4px 5px; line-height: 1;
+  }
+  .cat-ord:disabled { opacity: .28; }
+  body.edit .cat-edit, body.edit .cat-del, body.edit .cat-ord { display: inline-block; }
   .chevron { color: var(--cat-accent, var(--muted)); transition: transform .15s; font-size: 13px; }
   .category.collapsed .chevron { transform: rotate(-90deg); }
   .category.collapsed .items, .category.collapsed .add-row { display: none; }
@@ -228,7 +233,7 @@
     padding: 5px 9px; font-size: 12px; font-weight: 700; line-height: 1;
   }
   body.select .cat-selall { display: inline-block; }
-  body.select .cat-edit, body.select .cat-del { display: none !important; }
+  body.select .cat-edit, body.select .cat-del, body.select .cat-ord { display: none !important; }
   body.select .add-row, body.select .add-cat-btn, body.select .fab { display: none !important; }
   body.select { padding-bottom: 150px; }
   .bulk-btn.on { background: var(--brand); color: #fff; border-color: var(--brand); }
@@ -484,7 +489,9 @@ function catList() {
   return Object.entries(state.cats).map(([id, c]) => ({ id, ...c })).sort((a, b) => a.order - b.order);
 }
 function itemList(cat) {
-  return Object.entries(cat.items || {}).map(([id, i]) => ({ id, ...i })).sort((a, b) => a.order - b.order);
+  // Items are shown alphabetically within each category (default sort).
+  return Object.entries(cat.items || {}).map(([id, i]) => ({ id, ...i }))
+    .sort((a, b) => a.name.localeCompare(b.name, "it", { sensitivity: "base", numeric: true }));
 }
 function nextCatOrder() { return Object.values(state.cats).reduce((m, c) => Math.max(m, c.order || 0), -1) + 1; }
 function nextItemOrder(cat) { return Object.values(cat.items || {}).reduce((m, i) => Math.max(m, i.order || 0), -1) + 1; }
@@ -576,6 +583,16 @@ function toggleCollapse(cid) {
   const cat = state.cats[cid]; if (!cat) return;
   cat.collapsed = !cat.collapsed; saveLocal(); render();
 }
+function moveCatOrder(cid, dir) {
+  const cats = catList();                 // sorted by current order
+  const idx = cats.findIndex(c => c.id === cid);
+  const j = idx + dir;
+  if (idx < 0 || j < 0 || j >= cats.length) return;
+  const arr = cats.map(c => c.id);
+  const tmp = arr[idx]; arr[idx] = arr[j]; arr[j] = tmp;
+  arr.forEach((id, i) => { state.cats[id].order = i; });   // reassign sequential orders
+  saveLocal(); render();
+}
 function markAll(val, label) {
   const changed = [];
   Object.keys(state.cats).forEach(cid => {
@@ -634,7 +651,8 @@ function renderProgress() {
 
 function renderList() {
   listEl.innerHTML = "";
-  catList().forEach((cat) => {
+  const cats = catList();
+  cats.forEach((cat, index) => {
     const palette = categoryPalette[Math.abs(cat.order) % categoryPalette.length];
     let its = itemList(cat);
     const total = its.length;
@@ -676,7 +694,15 @@ function renderList() {
       its.forEach(it => setSelected(cat.id, it.id, !visSel));
       updateMoveBar(); render();
     });
-    right.append(catSelAll, catEdit, catDel);
+    const catUp = document.createElement("button");
+    catUp.className = "cat-ord"; catUp.innerHTML = "&#8593;"; catUp.title = "Sposta su";
+    catUp.disabled = index === 0;
+    catUp.addEventListener("click", (e) => { e.stopPropagation(); moveCatOrder(cat.id, -1); });
+    const catDown = document.createElement("button");
+    catDown.className = "cat-ord"; catDown.innerHTML = "&#8595;"; catDown.title = "Sposta gi\u00f9";
+    catDown.disabled = index === cats.length - 1;
+    catDown.addEventListener("click", (e) => { e.stopPropagation(); moveCatOrder(cat.id, 1); });
+    right.append(catUp, catDown, catSelAll, catEdit, catDel);
 
     head.append(left, right);
     catDiv.appendChild(head);

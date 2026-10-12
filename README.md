@@ -8,7 +8,8 @@ Live: https://stefanoamato93-wq.github.io/valigia/
 ## What it does
 
 - **Categorised checklist** of everything to pack, grouped into categories
-  (Viaggio, Vestiti, Bagno, Tech, Accessori by default).
+  (Viaggio, Vestiti, Bagno, Tech, Accessori by default). Items inside each
+  category are always shown in alphabetical order (default sort).
 - **Tap an item** (circle or label) to mark it packed / unpacked. Packed items
   get a check and are greyed out with a strike-through.
 - **Progress** card at the top shows `X / Y in valigia`, a percentage and a
@@ -22,8 +23,11 @@ Live: https://stefanoamato93-wq.github.io/valigia/
 - **Add** items with the floating `+` (pick a category) or inline at the bottom
   of each category.
 - **Edit mode** (gear, top right) reveals move (⇄), rename (✎) and delete (🗑)
-  buttons on every item, rename/delete on every category, plus **+ Nuova
-  categoria**.
+  buttons on every item; on each category it shows reorder arrows (↑ / ↓),
+  rename and delete, plus **+ Nuova categoria**.
+- **Reorder categories:** in edit mode use the ↑ / ↓ arrows on a category header
+  to move it up or down. The order is saved and persists. (Items are not manually
+  orderable; they stay alphabetical.)
 - **Move items between categories**, single or in bulk:
   - *Single:* in edit mode tap the ⇄ button on an item and pick the destination
     category.
@@ -59,6 +63,12 @@ state = {
 
 - `packed` (boolean) is the only per-item state. Default seed is everything
   `packed: false`.
+- Item display order is **always alphabetical** (`itemList` sorts by `name`,
+  Italian locale, case-insensitive, `numeric` on so "2a chiave" sorts naturally).
+  The per-item `order` field is still stored but no longer drives item display.
+- Category display order follows the category `order` field, which the user
+  controls with the ↑ / ↓ arrows in edit mode. `moveCatOrder(cid, dir)` swaps a
+  category with its neighbour and reassigns sequential `order` values (0..n-1).
 - Moving an item keeps its stable `<itemId>` and `packed` state; it just
   relocates the entry from the source category's `items` to the destination's
   (with a fresh `order` at the end). `moveItems(targets, destCid)` handles one or
