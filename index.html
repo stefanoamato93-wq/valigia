@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f6e8c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Valigia</title>
+<style>
+  :root {
+    --brand: #0f6e8c;
+    --brand-dark: #0a5569;
+    --bg: #f3f6f7;
+    --card: #ffffff;
+    --line: #e2e8ea;
+    --text: #1b2224;
+    --muted: #879599;
+    --done-bg: #e6f3f6;
+    --danger: #d23b3b;
+    --amber: #e8a33d;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 16px;
+    padding-bottom: 90px;
+  }
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--brand);
+    color: #fff;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  }
+  header h1 { font-size: 20px; margin: 0; font-weight: 700; display: flex; align-items: center; gap: 9px; }
+  .gear {
+    background: rgba(255,255,255,0.18);
+    border: none; color: #fff;
+    width: 38px; height: 38px; border-radius: 9px;
+    font-size: 18px; line-height: 1;
+  }
+  .gear:active { background: rgba(255,255,255,0.32); }
+  body.edit .gear { background: #fff; color: var(--brand); }
+
+  /* ---- PROGRESS ---- */
+  .progress-card {
+    background: var(--card);
+    margin: 10px;
+    border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    padding: 14px 14px 12px;
+  }
+  .progress-top {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .progress-count { font-size: 15px; font-weight: 700; }
+  .progress-count b { color: var(--brand); }
+  .progress-pct { font-size: 24px; font-weight: 800; color: var(--brand); }
+  .progress-pct.done { color: #1a9e5c; }
+  .bar { height: 10px; background: #e9eef0; border-radius: 10px; overflow: hidden; }
+  .bar > span { display: block; height: 100%; width: 0; background: var(--brand); border-radius: 10px; transition: width .25s ease; }
+  .bar > span.done { background: #1a9e5c; }
+  .progress-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .pa-btn {
+    flex: 1; border: 1px solid var(--line); background: #fff; color: var(--text);
+    border-radius: 10px; padding: 11px 10px; font: inherit; font-size: 14px; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  }
+  .pa-btn:active { background: #eef2f3; }
+  .pa-btn.primary { background: var(--brand); color: #fff; border-color: var(--brand); }
+  .pa-btn.primary:active { background: var(--brand-dark); }
+
+  /* ---- SEARCH ---- */
+  .searchbar {
+    background: var(--card);
+    margin: 10px;
+    border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    padding: 10px 12px;
+  }
+  .search-row { display: flex; align-items: center; gap: 10px; }
+  .search-wrap {
+    flex: 1;
+    display: flex; align-items: center; gap: 8px;
+    background: #f0f3f4; border-radius: 10px; padding: 0 10px;
+  }
+  .search-wrap:focus-within { outline: 2px solid var(--brand); }
+  .search-ic { color: var(--muted); font-size: 15px; flex: 0 0 auto; }
+  .search-wrap input {
+    flex: 1; border: none; background: none;
+    padding: 11px 4px; font-size: 16px; outline: none; color: var(--text);
+  }
+  .search-clear {
+    display: none; background: none; border: none;
+    color: var(--muted); font-size: 20px; padding: 4px; line-height: 1;
+  }
+  .search-wrap.has-text .search-clear { display: block; }
+  .filter-toggle {
+    flex: 0 0 auto; border: 1px solid var(--line); background: #fff; color: var(--muted);
+    border-radius: 10px; padding: 9px 11px; font: inherit; font-size: 13px; font-weight: 700;
+    white-space: nowrap;
+  }
+  .filter-toggle.on { background: var(--done-bg); color: var(--brand); border-color: var(--brand); }
+  .search-results { margin-top: 8px; }
+  .search-results:empty { display: none; }
+  .sr-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 6px; border-top: 1px solid var(--line);
+  }
+  .sr-item:first-child { border-top: none; }
+  .sr-main { flex: 1; min-width: 0; cursor: pointer; }
+  .sr-name { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sr-cat { font-size: 12px; color: var(--muted); }
+  .sr-item.done .sr-name { color: var(--muted); text-decoration: line-through; }
+  .sr-add {
+    background: var(--brand); color: #fff; border: none;
+    border-radius: 20px; padding: 8px 14px; font-size: 14px; font-weight: 600;
+    flex: 0 0 auto;
+  }
+  .sr-add:active { background: var(--brand-dark); }
+  .sr-add.added { background: var(--done-bg); color: var(--brand); }
+  .sr-del {
+    background: none; border: none; color: var(--danger);
+    font-size: 18px; padding: 4px 8px; flex: 0 0 auto; line-height: 1;
+  }
+  .sr-new { color: var(--brand); font-weight: 600; }
+  .sr-empty { color: var(--muted); font-size: 14px; padding: 12px 6px; text-align: center; }
+
+  /* ---- FULL LIST ---- */
+  .section-title {
+    padding: 14px 16px 4px; font-size: 13px; color: var(--muted); font-weight: 700;
+    text-transform: uppercase; letter-spacing: .04em;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  }
+  .bulk-controls { display: flex; gap: 7px; }
+  .bulk-btn {
+    border: 1px solid #cfd9dc; background: #fff; color: #55656a;
+    border-radius: 8px; padding: 7px 10px; font: inherit; font-size: 12px; font-weight: 700;
+  }
+  .bulk-btn:active:not(:disabled) { background: #e9eef0; }
+  .bulk-btn:disabled { opacity: .42; }
+
+  .category {
+    background: var(--card);
+    margin: 8px 10px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border-left: 5px solid var(--cat-accent, var(--brand));
+  }
+  .cat-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 13px 14px; font-weight: 700; font-size: 16px;
+    background: var(--cat-tint, #fff); user-select: none;
+  }
+  .cat-head .left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+  .cat-head .left .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cat-head .right { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+  .cat-count {
+    font-size: 12px; font-weight: 700; color: var(--cat-accent, var(--brand));
+    background: #fff; border-radius: 20px; padding: 2px 9px; min-width: 42px; text-align: center;
+  }
+  .cat-count.done { color: #1a9e5c; }
+  .cat-edit, .cat-del { display: none; background: none; border: none; font-size: 16px; padding: 4px 6px; line-height: 1; }
+  .cat-edit { color: var(--brand); }
+  .cat-del { color: var(--danger); }
+  body.edit .cat-edit, body.edit .cat-del { display: inline-block; }
+  .chevron { color: var(--cat-accent, var(--muted)); transition: transform .15s; font-size: 13px; }
+  .category.collapsed .chevron { transform: rotate(-90deg); }
+  .category.collapsed .items, .category.collapsed .add-row { display: none; }
+
+  .items { list-style: none; margin: 0; padding: 0; }
+  .item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 13px 14px; border-top: 1px solid var(--line); font-size: 16px;
+  }
+  .check {
+    width: 24px; height: 24px; border-radius: 50%;
+    border: 2px solid #ccd5d8; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 14px;
+  }
+  .item.done .check { background: var(--brand); border-color: var(--brand); }
+  .item.done .label { color: var(--muted); text-decoration: line-through; }
+  .label { flex: 1; }
+  .item-edit {
+    display: none; background: none; border: none; color: var(--brand);
+    font-size: 16px; padding: 4px 6px; line-height: 1;
+  }
+  .del {
+    display: none; background: none; border: none; color: var(--danger);
+    font-size: 20px; padding: 4px 6px; line-height: 1; opacity: .7;
+  }
+  body.edit .item-edit, body.edit .del { display: inline-block; }
+
+  .add-row {
+    display: flex; gap: 8px; padding: 10px 14px;
+    border-top: 1px solid var(--line); background: #fafbfc;
+  }
+  .add-row input {
+    flex: 1; border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 12px; font-size: 16px; outline: none;
+  }
+  .add-row input:focus { border-color: var(--brand); }
+  .add-row button {
+    background: var(--brand); color: #fff; border: none;
+    border-radius: 8px; padding: 0 18px; font-size: 22px; font-weight: 600;
+  }
+  .add-row button:active { background: var(--brand-dark); }
+
+  .add-cat-btn {
+    display: none; margin: 6px 10px 0; width: calc(100% - 20px);
+    background: #fff; color: var(--brand); border: 1.5px dashed var(--brand);
+    border-radius: 12px; padding: 14px; font-size: 15px; font-weight: 600;
+  }
+  body.edit .add-cat-btn { display: block; }
+
+  .fab {
+    position: fixed; right: 18px; bottom: 18px;
+    background: var(--brand); color: #fff; border: none;
+    border-radius: 50%; width: 58px; height: 58px; font-size: 30px;
+    box-shadow: 0 4px 12px rgba(15,110,140,.4); z-index: 30;
+  }
+  .fab:active { background: var(--brand-dark); }
+
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(0,0,0,.4);
+    display: none; align-items: flex-end; z-index: 40;
+  }
+  .modal-bg.open { display: flex; }
+  .modal {
+    background: #fff; width: 100%; border-radius: 16px 16px 0 0;
+    padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+  }
+  .modal h3 { margin: 0 0 12px; font-size: 17px; }
+  .modal input, .modal select {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px; font-size: 16px; margin-bottom: 12px; outline: none;
+  }
+  .modal .row { display: flex; gap: 10px; }
+  .modal .row button { flex: 1; padding: 13px; border-radius: 8px; font-size: 16px; font-weight: 600; border: none; }
+  .btn-primary { background: var(--brand); color: #fff; }
+  .btn-ghost { background: #eef1f2; color: var(--text); }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 86px;
+    transform: translateX(-50%) translateY(20px);
+    background: #1b2224; color: #fff; border-radius: 12px;
+    padding: 12px 14px; display: flex; align-items: center; gap: 14px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.3); font-size: 14px; z-index: 50;
+    opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
+    max-width: calc(100% - 32px);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+  .toast button {
+    background: none; border: none; color: #6fd3a6;
+    font-weight: 700; font-size: 14px; padding: 4px 6px; flex: 0 0 auto;
+  }
+
+  @media (max-width: 390px) {
+    .section-title { align-items: flex-start; }
+    .bulk-controls { width: 100%; }
+    .bulk-btn { flex: 1; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span>&#129523;</span> Valigia</h1>
+  <button class="gear" id="btnGear" title="Modifica">&#9881;</button>
+</header>
+
+<!-- PROGRESS -->
+<div class="progress-card">
+  <div class="progress-top">
+    <span class="progress-count"><b id="pcDone">0</b> / <span id="pcTotal">0</span> in valigia</span>
+    <span class="progress-pct" id="pcPct">0%</span>
+  </div>
+  <div class="bar"><span id="pcBar"></span></div>
+  <div class="progress-actions">
+    <button class="pa-btn primary" id="btnAll">&#10003; Metti tutto</button>
+    <button class="pa-btn" id="btnEmpty">&#8635; Svuota</button>
+  </div>
+</div>
+
+<!-- SEARCH -->
+<div class="searchbar">
+  <div class="search-row">
+    <div class="search-wrap">
+      <span class="search-ic">&#128269;</span>
+      <input type="text" id="searchInput" placeholder="Cerca o aggiungi..." autocomplete="off">
+      <button class="search-clear" id="searchClear" aria-label="Pulisci ricerca">&times;</button>
+    </div>
+    <button class="filter-toggle" id="btnFilter">Da mettere</button>
+  </div>
+  <div class="search-results" id="searchResults"></div>
+</div>
+
+<div class="section-title" id="sectionTitle">Lista completa</div>
+<div id="list"></div>
+<button class="add-cat-btn" id="btnCat">+ Nuova categoria</button>
+
+<button class="fab" id="fabAdd">+</button>
+
+<!-- Undo toast -->
+<div class="toast" id="toast">
+  <span id="toastMsg"></span>
+  <button id="toastUndo">Annulla</button>
+</div>
+
+<!-- Add item modal -->
+<div class="modal-bg" id="modalItem">
+  <div class="modal">
+    <h3>Aggiungi oggetto</h3>
+    <input type="text" id="itemName" placeholder="Nome oggetto" autocomplete="off">
+    <select id="itemCat"></select>
+    <div class="row">
+      <button class="btn-ghost" id="itemCancel">Annulla</button>
+      <button class="btn-primary" id="itemSave">Aggiungi</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add category modal -->
+<div class="modal-bg" id="modalCat">
+  <div class="modal">
+    <h3>Nuova categoria</h3>
+    <input type="text" id="catName" placeholder="Nome categoria" autocomplete="off">
+    <div class="row">
+      <button class="btn-ghost" id="catCancel">Annulla</button>
+      <button class="btn-primary" id="catSave">Crea</button>
+    </div>
+  </div>
+</div>
+
+<!-- Rename modal -->
+<div class="modal-bg" id="modalRename">
+  <div class="modal">
+    <h3 id="renameTitle">Rinomina</h3>
+    <input type="text" id="renameInput" placeholder="Nuovo nome" autocomplete="off">
+    <div class="row">
+      <button class="btn-ghost" id="renameCancel">Annulla</button>
+      <button class="btn-primary" id="renameSave">Salva</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- Default data (seeded from the Google Sheet, all unpacked) ---------- */
+const DEFAULT = {
+  "Viaggio": ["Passaporto","Portafoglio","Chiavi","Contanti","Assicurazione sanitaria","Certificato vaccinale","Biglietti viaggio","Hotel","Tachipirina","Imodium","Xamamina","Melatonina","Pillole alta quota","Cerotti","Acqua","Cibo","Fazzoletti","Frisk","Libri","Download content","Contenitori <100ml","Cuscino testa","2a chiave macchina","Regali ospiti","Lucchetto"],
+  "Vestiti": ["Mutande","Calze","Magliette","Pantaloni","Pantaloncini","Camicie","Maglioncini","Sneakers","Scarpe ginnastica","Scarpe da cerimonia","Dude","Scarpe Barca","Scarpe trekking","Scarpe antinfortunistiche","Stivaletti Pelle","Stivaletti Scamosciati","Tuta","Pile","Felpa","Cintura","Completo","Cravatta","Cintura Completo","Lucido scarpe","Busta vestiti sporchi","Giaccone","Giacca sportiva","Giacca pelle","Giacca a vento Madeira","Napajiri","Poncho Impermeabile","Cappottino lungo","Cappellino","Costumi","Guanti","Pantaloni Impermeabili","Pantaloni Quechua","Scaldacollo","Cappello","Calzamaglia","Termica","Vestiti sci","Kway","Catarifrangente"],
+  "Bagno": ["Beauty","Spazzolino","Dentifricio","Deodorante","Deodorante Roll","Burrocacao","Mascherina","Integratori","Filo","Lamette","Tagliaunghie","Profumo","Crema solare","Autan","Pulitore Mascherina","Rasoio elettrico","Carica Rasoio elettrico","Shampoo","Shampoo secco","Accappatoio","Asciugamani","Asciugamano spiaggia","Ciabatte"],
+  "Tech": ["Saponetta Internet","Cellulare","Apple Watch","Ipad","Cell Aziendale","Airpods","Cassa musica","PC","Mouse","Jabra","Power Bank","Badge","Caricabatterie triplo","USB B to C","Caricabatterie PC","Adattatore prese"],
+  "Accessori": ["Occhiali da sole","Elastici Palestra","Ombrello","Tappi orecchie","Maschera occhi","Guanti palestra","Maglietta palestra","Preserv Rab","Pulisci AirPods","Marsupio","Borsello","Zaino","Zainetto spiaggia","Scarpe scoglio","Copri zaino","eSim (Revolut)","Cosicchio Sim","Occhialini","Ombrellone","Materassino","Penna","Airtag","Scotch","Lenzuola","Sacco a Pelo","Sacco Lenzuolo","Bastoncini trekking","Borraccia"]
+};
+
+/* Data model (keyed objects with stable IDs):
+   state = { cats: { <catId>: { name, order, collapsed, items: { <itemId>: { name, order, packed } } } } } */
+const KEY = "valigia_v1";
+const FILTER_KEY = "valigia_filter_v1";
+let state = loadOrSeed();
+let editMode = false;
+let onlyTodo = loadFilter();
+let searchRefresh = null;
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+/* ---------- Persistence ---------- */
+function loadOrSeed() {
+  try { const raw = localStorage.getItem(KEY); if (raw) return normalize(JSON.parse(raw)); } catch (e) {}
+  return seed();
+}
+function saveLocal() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+function loadFilter() { try { return localStorage.getItem(FILTER_KEY) === "1"; } catch (e) { return false; } }
+function saveFilter() { try { localStorage.setItem(FILTER_KEY, onlyTodo ? "1" : "0"); } catch (e) {} }
+
+function seed() {
+  const cats = {};
+  Object.keys(DEFAULT).forEach((name, ci) => {
+    const items = {};
+    DEFAULT[name].forEach((n, ii) => { items[uid()] = { name: n, order: ii, packed: false }; });
+    cats[uid()] = { name, order: ci, collapsed: false, items };
+  });
+  return { cats };
+}
+function normalize(s) {
+  const cats = {};
+  const src = (s && s.cats) || {};
+  Object.keys(src).forEach(cid => {
+    const c = src[cid] || {};
+    const items = {};
+    const isrc = c.items || {};
+    Object.keys(isrc).forEach(iid => {
+      const it = isrc[iid] || {};
+      items[iid] = { name: String(it.name || ""), order: Number(it.order) || 0, packed: !!it.packed };
+    });
+    cats[cid] = { name: String(c.name || ""), order: Number(c.order) || 0, collapsed: !!c.collapsed, items };
+  });
+  if (!Object.keys(cats).length) return seed();
+  return { cats };
+}
+
+/* ---------- Sorted views ---------- */
+function catList() {
+  return Object.entries(state.cats).map(([id, c]) => ({ id, ...c })).sort((a, b) => a.order - b.order);
+}
+function itemList(cat) {
+  return Object.entries(cat.items || {}).map(([id, i]) => ({ id, ...i })).sort((a, b) => a.order - b.order);
+}
+function nextCatOrder() { return Object.values(state.cats).reduce((m, c) => Math.max(m, c.order || 0), -1) + 1; }
+function nextItemOrder(cat) { return Object.values(cat.items || {}).reduce((m, i) => Math.max(m, i.order || 0), -1) + 1; }
+function totals() {
+  let done = 0, total = 0;
+  Object.values(state.cats).forEach(c => Object.values(c.items || {}).forEach(i => { total++; if (i.packed) done++; }));
+  return { done, total };
+}
+
+/* ---------- Operations ---------- */
+function setPacked(cid, iid, val) {
+  const it = state.cats[cid] && state.cats[cid].items[iid];
+  if (!it) return;
+  it.packed = val; saveLocal(); render();
+}
+function togglePacked(cid, iid) {
+  const it = state.cats[cid] && state.cats[cid].items[iid];
+  if (it) setPacked(cid, iid, !it.packed);
+}
+function addItem(cid, name, packed) {
+  const cat = state.cats[cid]; if (!cat) return;
+  const iid = uid();
+  cat.items = cat.items || {};
+  cat.items[iid] = { name, order: nextItemOrder(cat), packed: !!packed };
+  if (cat.collapsed) cat.collapsed = false;
+  saveLocal(); render();
+}
+function deleteItem(cid, iid) {
+  const cat = state.cats[cid]; const it = cat && cat.items[iid]; if (!it) return;
+  const data = { ...it };
+  delete cat.items[iid];
+  saveLocal(); render();
+  showUndo('"' + data.name + '" eliminato', () => {
+    if (!state.cats[cid]) return;
+    state.cats[cid].items[iid] = data; saveLocal(); render();
+  });
+}
+function renameItem(cid, iid, name) {
+  const it = state.cats[cid] && state.cats[cid].items[iid];
+  if (!it) return;
+  it.name = name; saveLocal(); render();
+}
+function addCat(name) {
+  const cid = uid();
+  state.cats[cid] = { name, order: nextCatOrder(), collapsed: false, items: {} };
+  saveLocal(); render();
+}
+function deleteCat(cid) {
+  const cat = state.cats[cid]; if (!cat) return;
+  const data = JSON.parse(JSON.stringify(cat));
+  delete state.cats[cid];
+  saveLocal(); render();
+  showUndo('Categoria "' + data.name + '" eliminata', () => {
+    state.cats[cid] = data; saveLocal(); render();
+  });
+}
+function renameCat(cid, name) {
+  const cat = state.cats[cid]; if (!cat) return;
+  cat.name = name; saveLocal(); render();
+}
+function toggleCollapse(cid) {
+  const cat = state.cats[cid]; if (!cat) return;
+  cat.collapsed = !cat.collapsed; saveLocal(); render();
+}
+function markAll(val, label) {
+  const changed = [];
+  Object.keys(state.cats).forEach(cid => {
+    const items = state.cats[cid].items || {};
+    Object.keys(items).forEach(iid => {
+      if (!!items[iid].packed !== val) { items[iid].packed = val; changed.push([cid, iid]); }
+    });
+  });
+  if (!changed.length) return;
+  saveLocal(); render();
+  showUndo(label, () => {
+    changed.forEach(([cid, iid]) => {
+      if (state.cats[cid] && state.cats[cid].items[iid]) state.cats[cid].items[iid].packed = !val;
+    });
+    saveLocal(); render();
+  });
+}
+function setAllCollapsed(collapsed) {
+  let touched = false;
+  Object.values(state.cats).forEach(cat => { if (cat.collapsed !== collapsed) { cat.collapsed = collapsed; touched = true; } });
+  if (!touched) return;
+  saveLocal(); render();
+}
+
+/* ---------- Rendering ---------- */
+const listEl = document.getElementById("list");
+const pcDone = document.getElementById("pcDone");
+const pcTotal = document.getElementById("pcTotal");
+const pcPct = document.getElementById("pcPct");
+const pcBar = document.getElementById("pcBar");
+
+const categoryPalette = [
+  { accent: "#0f6e8c", tint: "#e6f3f6" },
+  { accent: "#2e7d32", tint: "#e8f5e9" },
+  { accent: "#6a1b9a", tint: "#f3e5f5" },
+  { accent: "#d35400", tint: "#fff3e0" },
+  { accent: "#1565c0", tint: "#e3f2fd" },
+  { accent: "#ad1457", tint: "#fce4ec" },
+  { accent: "#00796b", tint: "#e0f2f1" },
+  { accent: "#795548", tint: "#efebe9" }
+];
+
+function render() { renderProgress(); renderList(); refreshBulk(); if (searchRefresh) searchRefresh(); }
+
+function renderProgress() {
+  const { done, total } = totals();
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  pcDone.textContent = done;
+  pcTotal.textContent = total;
+  pcPct.textContent = pct + "%";
+  pcBar.style.width = pct + "%";
+  const isDone = total > 0 && done === total;
+  pcPct.classList.toggle("done", isDone);
+  pcBar.classList.toggle("done", isDone);
+}
+
+function renderList() {
+  listEl.innerHTML = "";
+  catList().forEach((cat) => {
+    const palette = categoryPalette[Math.abs(cat.order) % categoryPalette.length];
+    let its = itemList(cat);
+    const total = its.length;
+    const doneCount = its.filter(i => i.packed).length;
+    if (onlyTodo) its = its.filter(i => !i.packed);
+    // In "Da mettere" filter mode, hide a category once everything in it is packed.
+    if (onlyTodo && total > 0 && !its.length) return;
+
+    const catDiv = document.createElement("div");
+    catDiv.className = "category" + (cat.collapsed ? " collapsed" : "");
+    catDiv.style.setProperty("--cat-accent", palette.accent);
+    catDiv.style.setProperty("--cat-tint", palette.tint);
+
+    const head = document.createElement("div");
+    head.className = "cat-head";
+
+    const left = document.createElement("div");
+    left.className = "left";
+    const allDone = total > 0 && doneCount === total;
+    left.innerHTML =
+      '<span class="chevron">&#9660;</span><span class="name">' + esc(cat.name) + '</span>' +
+      '<span class="cat-count' + (allDone ? " done" : "") + '">' + doneCount + '/' + total + '</span>';
+    left.addEventListener("click", () => toggleCollapse(cat.id));
+
+    const right = document.createElement("div");
+    right.className = "right";
+    const catEdit = document.createElement("button");
+    catEdit.className = "cat-edit"; catEdit.innerHTML = "&#9998;";
+    catEdit.addEventListener("click", (e) => { e.stopPropagation(); openRename("cat", cat.id, null, cat.name); });
+    const catDel = document.createElement("button");
+    catDel.className = "cat-del"; catDel.innerHTML = "&#128465;";
+    catDel.addEventListener("click", (e) => { e.stopPropagation(); deleteCat(cat.id); });
+    right.append(catEdit, catDel);
+
+    head.append(left, right);
+    catDiv.appendChild(head);
+
+    const ul = document.createElement("ul");
+    ul.className = "items";
+    its.forEach((item) => {
+      const li = document.createElement("li");
+      li.className = "item" + (item.packed ? " done" : "");
+      const check = document.createElement("div");
+      check.className = "check";
+      check.innerHTML = item.packed ? "&#10003;" : "";
+      const label = document.createElement("span");
+      label.className = "label";
+      label.textContent = item.name;
+      const edit = document.createElement("button");
+      edit.className = "item-edit"; edit.innerHTML = "&#9998;";
+      const del = document.createElement("button");
+      del.className = "del"; del.innerHTML = "&times;";
+
+      check.addEventListener("click", () => togglePacked(cat.id, item.id));
+      label.addEventListener("click", () => togglePacked(cat.id, item.id));
+      edit.addEventListener("click", (e) => { e.stopPropagation(); openRename("item", cat.id, item.id, item.name); });
+      del.addEventListener("click", (e) => { e.stopPropagation(); deleteItem(cat.id, item.id); });
+
+      li.append(check, label, edit, del);
+      ul.appendChild(li);
+    });
+    catDiv.appendChild(ul);
+
+    const addRow = document.createElement("div");
+    addRow.className = "add-row";
+    const inp = document.createElement("input");
+    inp.type = "text"; inp.placeholder = "Aggiungi a " + cat.name; inp.autocomplete = "off";
+    const addBtn = document.createElement("button"); addBtn.innerHTML = "+";
+    const doAdd = () => { const v = inp.value.trim(); if (!v) return; inp.value = ""; addItem(cat.id, v, false); };
+    addBtn.addEventListener("click", doAdd);
+    inp.addEventListener("keydown", e => { if (e.key === "Enter") doAdd(); });
+    addRow.append(inp, addBtn);
+    catDiv.appendChild(addRow);
+
+    listEl.appendChild(catDiv);
+  });
+
+  if (!listEl.children.length) {
+    const empty = document.createElement("div");
+    empty.className = "sr-empty";
+    empty.style.margin = "16px";
+    empty.textContent = onlyTodo ? "Tutto in valigia. Buon viaggio!" : "Nessun oggetto. Tocca + per aggiungerne uno.";
+    listEl.appendChild(empty);
+  }
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+}
+
+/* ---------- Undo toast ---------- */
+const toast = document.getElementById("toast");
+const toastMsg = document.getElementById("toastMsg");
+let undoFn = null, toastTimer = null;
+function showUndo(msg, fn) {
+  undoFn = fn || null;
+  toastMsg.textContent = msg;
+  toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.classList.remove("show"); undoFn = null; }, 6000);
+}
+document.getElementById("toastUndo").addEventListener("click", () => {
+  const fn = undoFn; undoFn = null; toast.classList.remove("show"); if (fn) fn();
+});
+
+/* ---------- Header / edit mode ---------- */
+document.getElementById("btnGear").addEventListener("click", () => {
+  editMode = !editMode; document.body.classList.toggle("edit", editMode);
+});
+
+/* ---------- Progress actions ---------- */
+document.getElementById("btnAll").addEventListener("click", () => markAll(true, "Tutto in valigia"));
+document.getElementById("btnEmpty").addEventListener("click", () => markAll(false, "Valigia svuotata"));
+
+/* ---------- Filter ---------- */
+const btnFilter = document.getElementById("btnFilter");
+function syncFilterBtn() { btnFilter.classList.toggle("on", onlyTodo); btnFilter.textContent = onlyTodo ? "Da mettere \u2713" : "Da mettere"; }
+btnFilter.addEventListener("click", () => { onlyTodo = !onlyTodo; saveFilter(); syncFilterBtn(); render(); });
+syncFilterBtn();
+
+/* ---------- Add item modal ---------- */
+const modalItem = document.getElementById("modalItem");
+const itemName = document.getElementById("itemName");
+const itemCat = document.getElementById("itemCat");
+document.getElementById("fabAdd").addEventListener("click", () => {
+  const cats = catList();
+  if (!cats.length) { alert("Crea prima una categoria (rotellina in alto)."); return; }
+  itemCat.innerHTML = cats.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join("");
+  itemName.value = "";
+  modalItem.classList.add("open");
+  setTimeout(() => itemName.focus(), 100);
+});
+document.getElementById("itemCancel").addEventListener("click", () => modalItem.classList.remove("open"));
+document.getElementById("itemSave").addEventListener("click", saveItem);
+itemName.addEventListener("keydown", e => { if (e.key === "Enter") saveItem(); });
+function saveItem() {
+  const v = itemName.value.trim(); if (!v) return;
+  const cid = itemCat.value;
+  modalItem.classList.remove("open");
+  addItem(cid, v, false);
+  clearSearch();
+}
+
+/* ---------- Add category modal ---------- */
+const modalCat = document.getElementById("modalCat");
+const catName = document.getElementById("catName");
+document.getElementById("btnCat").addEventListener("click", () => {
+  catName.value = ""; modalCat.classList.add("open"); setTimeout(() => catName.focus(), 100);
+});
+document.getElementById("catCancel").addEventListener("click", () => modalCat.classList.remove("open"));
+document.getElementById("catSave").addEventListener("click", saveCat);
+catName.addEventListener("keydown", e => { if (e.key === "Enter") saveCat(); });
+function saveCat() {
+  const v = catName.value.trim(); if (!v) return;
+  modalCat.classList.remove("open"); addCat(v);
+}
+
+/* ---------- Rename modal ---------- */
+const modalRename = document.getElementById("modalRename");
+const renameInput = document.getElementById("renameInput");
+const renameTitle = document.getElementById("renameTitle");
+let renameTarget = null; // { type:'item'|'cat', cid, iid }
+function openRename(type, cid, iid, current) {
+  renameTarget = { type, cid, iid };
+  renameTitle.textContent = type === "cat" ? "Rinomina categoria" : "Rinomina oggetto";
+  renameInput.value = current || "";
+  modalRename.classList.add("open");
+  setTimeout(() => { renameInput.focus(); renameInput.select(); }, 100);
+}
+function saveRename() {
+  const v = renameInput.value.trim(); if (!v || !renameTarget) { modalRename.classList.remove("open"); return; }
+  const t = renameTarget; renameTarget = null; modalRename.classList.remove("open");
+  if (t.type === "cat") renameCat(t.cid, v); else renameItem(t.cid, t.iid, v);
+}
+document.getElementById("renameCancel").addEventListener("click", () => { renameTarget = null; modalRename.classList.remove("open"); });
+document.getElementById("renameSave").addEventListener("click", saveRename);
+renameInput.addEventListener("keydown", e => { if (e.key === "Enter") saveRename(); });
+
+[modalItem, modalCat, modalRename].forEach(m => {
+  m.addEventListener("click", e => { if (e.target === m) m.classList.remove("open"); });
+});
+
+/* ---------- Bulk expand/collapse ---------- */
+const sectionTitle = document.getElementById("sectionTitle");
+const expandAllBtn = document.createElement("button");
+const collapseAllBtn = document.createElement("button");
+(function makeBulkControls() {
+  sectionTitle.textContent = "";
+  const label = document.createElement("span"); label.textContent = "Lista completa";
+  const controls = document.createElement("div"); controls.className = "bulk-controls";
+  expandAllBtn.type = "button"; expandAllBtn.className = "bulk-btn"; expandAllBtn.textContent = "Espandi tutte";
+  collapseAllBtn.type = "button"; collapseAllBtn.className = "bulk-btn"; collapseAllBtn.textContent = "Comprimi tutte";
+  controls.append(expandAllBtn, collapseAllBtn);
+  sectionTitle.append(label, controls);
+})();
+function refreshBulk() {
+  const cats = catList();
+  expandAllBtn.disabled = !cats.length || cats.every(c => !c.collapsed);
+  collapseAllBtn.disabled = !cats.length || cats.every(c => c.collapsed);
+}
+expandAllBtn.addEventListener("click", () => setAllCollapsed(false));
+collapseAllBtn.addEventListener("click", () => setAllCollapsed(true));
+
+/* ---------- Search ---------- */
+const searchInput = document.getElementById("searchInput");
+const searchResults = document.getElementById("searchResults");
+const searchWrap = document.querySelector(".search-wrap");
+const searchClear = document.getElementById("searchClear");
+
+function allItemsFlat() {
+  const out = [];
+  catList().forEach(cat => itemList(cat).forEach(it => out.push({ cid: cat.id, catName: cat.name, id: it.id, name: it.name, packed: it.packed })));
+  return out;
+}
+function renderSearch() {
+  const raw = searchInput.value.trim();
+  const q = raw.toLowerCase();
+  searchWrap.classList.toggle("has-text", !!searchInput.value);
+  if (!q) { searchResults.innerHTML = ""; return; }
+
+  const all = allItemsFlat();
+  const matches = all.filter(it => it.name.toLowerCase().includes(q)).sort((a, b) => {
+    const ai = a.name.toLowerCase().indexOf(q), bi = b.name.toLowerCase().indexOf(q);
+    if (ai !== bi) return ai - bi;
+    return a.name.localeCompare(b.name, "it");
+  });
+  const exact = all.some(it => it.name.toLowerCase() === q);
+  searchResults.innerHTML = "";
+
+  matches.slice(0, 40).forEach(it => {
+    const row = document.createElement("div");
+    row.className = "sr-item" + (it.packed ? " done" : "");
+    const main = document.createElement("div");
+    main.className = "sr-main";
+    main.innerHTML = '<div class="sr-name">' + esc(it.name) + '</div><div class="sr-cat">' + esc(it.catName) + '</div>';
+    main.addEventListener("click", () => togglePackedFromSearch(it));
+    const add = document.createElement("button");
+    add.className = "sr-add" + (it.packed ? " added" : "");
+    add.innerHTML = it.packed ? "&#10003; Fatto" : "+ Metti";
+    add.addEventListener("click", (e) => { e.stopPropagation(); togglePackedFromSearch(it); });
+    const del = document.createElement("button");
+    del.className = "sr-del"; del.innerHTML = "&#128465;";
+    del.setAttribute("aria-label", "Elimina " + it.name);
+    del.addEventListener("click", (e) => { e.stopPropagation(); deleteItem(it.cid, it.id); });
+    row.append(main, add, del);
+    searchResults.appendChild(row);
+  });
+
+  if (raw && !exact) {
+    const row = document.createElement("div");
+    row.className = "sr-item";
+    const main = document.createElement("div");
+    main.className = "sr-main sr-new";
+    main.textContent = 'Nuovo oggetto: "' + raw + '"';
+    const add = document.createElement("button");
+    add.className = "sr-add"; add.textContent = "+ Crea";
+    const create = () => openNewItemFromSearch(raw);
+    main.addEventListener("click", create);
+    add.addEventListener("click", (e) => { e.stopPropagation(); create(); });
+    row.append(main, add);
+    searchResults.appendChild(row);
+  }
+  if (!searchResults.children.length) searchResults.innerHTML = '<div class="sr-empty">Nessun risultato</div>';
+}
+function clearSearch() { searchInput.value = ""; renderSearch(); searchInput.focus(); }
+function togglePackedFromSearch(it) {
+  const packing = !it.packed;
+  setPacked(it.cid, it.id, packing);
+  if (packing) clearSearch();
+}
+function openNewItemFromSearch(name) {
+  const cats = catList();
+  if (!cats.length) { alert("Crea prima una categoria (rotellina in alto)."); return; }
+  itemCat.innerHTML = cats.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join("");
+  itemName.value = name;
+  modalItem.classList.add("open");
+  setTimeout(() => itemName.focus(), 100);
+}
+searchInput.addEventListener("input", renderSearch);
+searchClear.addEventListener("click", () => { searchInput.value = ""; renderSearch(); searchInput.focus(); });
+searchRefresh = renderSearch;
+
+render();
+</script>
+</body>
+</html>
