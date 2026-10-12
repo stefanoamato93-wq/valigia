@@ -206,7 +206,46 @@
     display: none; background: none; border: none; color: var(--danger);
     font-size: 20px; padding: 4px 6px; line-height: 1; opacity: .7;
   }
-  body.edit .item-edit, body.edit .del { display: inline-block; }
+  .item-move {
+    display: none; background: none; border: none; color: var(--brand);
+    font-size: 18px; padding: 4px 6px; line-height: 1;
+  }
+  body.edit .item-move, body.edit .item-edit, body.edit .del { display: inline-block; }
+
+  /* ---- selection / move mode ---- */
+  .selbox {
+    width: 24px; height: 24px; border-radius: 6px;
+    border: 2px solid #ccd5d8; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 14px;
+  }
+  .selbox.on { background: var(--brand); border-color: var(--brand); }
+  .item.selectable { cursor: pointer; }
+  .item.sel { background: var(--done-bg); }
+  .cat-selall {
+    display: none; background: #fff; border: 1px solid var(--cat-accent, var(--brand));
+    color: var(--cat-accent, var(--brand)); border-radius: 8px;
+    padding: 5px 9px; font-size: 12px; font-weight: 700; line-height: 1;
+  }
+  body.select .cat-selall { display: inline-block; }
+  body.select .cat-edit, body.select .cat-del { display: none !important; }
+  body.select .add-row, body.select .add-cat-btn, body.select .fab { display: none !important; }
+  body.select { padding-bottom: 150px; }
+  .bulk-btn.on { background: var(--brand); color: #fff; border-color: var(--brand); }
+
+  .movebar {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    background: #fff; border-top: 1px solid var(--line);
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+    display: none; align-items: center; justify-content: space-between; gap: 10px;
+    box-shadow: 0 -2px 10px rgba(0,0,0,.08); z-index: 45;
+  }
+  body.select .movebar { display: flex; }
+  .movebar-count { font-weight: 700; font-size: 14px; }
+  .movebar-actions { display: flex; gap: 8px; }
+  .mb-primary { background: var(--brand); color: #fff; border: none; border-radius: 9px; padding: 11px 16px; font-size: 14px; font-weight: 700; }
+  .mb-primary:disabled { opacity: .45; }
+  .mb-ghost { background: #eef1f2; color: var(--text); border: none; border-radius: 9px; padding: 11px 14px; font-size: 14px; font-weight: 700; }
 
   .add-row {
     display: flex; gap: 8px; padding: 10px 14px;
@@ -324,6 +363,15 @@
   <button id="toastUndo">Annulla</button>
 </div>
 
+<!-- Move selection bar -->
+<div class="movebar" id="moveBar">
+  <span class="movebar-count" id="moveBarCount">0 selezionati</span>
+  <div class="movebar-actions">
+    <button class="mb-primary" id="moveBarGo">Sposta in&hellip;</button>
+    <button class="mb-ghost" id="moveBarDone">Fine</button>
+  </div>
+</div>
+
 <!-- Add item modal -->
 <div class="modal-bg" id="modalItem">
   <div class="modal">
@@ -361,6 +409,18 @@
   </div>
 </div>
 
+<!-- Move modal -->
+<div class="modal-bg" id="modalMove">
+  <div class="modal">
+    <h3 id="moveTitle">Sposta in&hellip;</h3>
+    <select id="moveCat"></select>
+    <div class="row">
+      <button class="btn-ghost" id="moveCancel">Annulla</button>
+      <button class="btn-primary" id="moveConfirm">Sposta</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ---------- Default data (seeded from the Google Sheet, all unpacked) ---------- */
 const DEFAULT = {
@@ -379,6 +439,8 @@ let state = loadOrSeed();
 let editMode = false;
 let onlyTodo = loadFilter();
 let searchRefresh = null;
+let selectMode = false;
+const selected = new Set(); // selection keys "cid|iid"
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
@@ -464,6 +526,33 @@ function renameItem(cid, iid, name) {
   const it = state.cats[cid] && state.cats[cid].items[iid];
   if (!it) return;
   it.name = name; saveLocal(); render();
+}
+function moveItems(targets, destCid) {
+  const dest = state.cats[destCid]; if (!dest) return;
+  dest.items = dest.items || {};
+  let ord = nextItemOrder(dest);
+  const moved = [];
+  targets.forEach(t => {
+    if (!t || t.cid === destCid) return;
+    const src = state.cats[t.cid]; const it = src && src.items[t.iid]; if (!it) return;
+    const data = { name: it.name, order: it.order, packed: it.packed };
+    moved.push({ iid: t.iid, fromCid: t.cid, data });
+    delete src.items[t.iid];
+    dest.items[t.iid] = { name: data.name, order: ord++, packed: data.packed };
+  });
+  if (!moved.length) return;
+  if (dest.collapsed) dest.collapsed = false;
+  saveLocal(); render();
+  const msg = moved.length === 1
+    ? ('"' + moved[0].data.name + '" spostato in ' + dest.name)
+    : (moved.length + ' oggetti spostati in ' + dest.name);
+  showUndo(msg, () => {
+    moved.forEach(m => {
+      if (dest.items[m.iid]) delete dest.items[m.iid];
+      if (state.cats[m.fromCid]) state.cats[m.fromCid].items[m.iid] = { name: m.data.name, order: m.data.order, packed: m.data.packed };
+    });
+    saveLocal(); render();
+  });
 }
 function addCat(name) {
   const cid = uid();
@@ -578,7 +667,16 @@ function renderList() {
     const catDel = document.createElement("button");
     catDel.className = "cat-del"; catDel.innerHTML = "&#128465;";
     catDel.addEventListener("click", (e) => { e.stopPropagation(); deleteCat(cat.id); });
-    right.append(catEdit, catDel);
+    const catSelAll = document.createElement("button");
+    catSelAll.className = "cat-selall";
+    const visSel = its.length > 0 && its.every(it => isSelected(cat.id, it.id));
+    catSelAll.textContent = visSel ? "Deseleziona" : "Tutti";
+    catSelAll.addEventListener("click", (e) => {
+      e.stopPropagation();
+      its.forEach(it => setSelected(cat.id, it.id, !visSel));
+      updateMoveBar(); render();
+    });
+    right.append(catSelAll, catEdit, catDel);
 
     head.append(left, right);
     catDiv.appendChild(head);
@@ -587,24 +685,40 @@ function renderList() {
     ul.className = "items";
     its.forEach((item) => {
       const li = document.createElement("li");
-      li.className = "item" + (item.packed ? " done" : "");
-      const check = document.createElement("div");
-      check.className = "check";
-      check.innerHTML = item.packed ? "&#10003;" : "";
-      const label = document.createElement("span");
-      label.className = "label";
-      label.textContent = item.name;
-      const edit = document.createElement("button");
-      edit.className = "item-edit"; edit.innerHTML = "&#9998;";
-      const del = document.createElement("button");
-      del.className = "del"; del.innerHTML = "&times;";
+      if (selectMode) {
+        const sel = isSelected(cat.id, item.id);
+        li.className = "item selectable" + (item.packed ? " done" : "") + (sel ? " sel" : "");
+        const box = document.createElement("div");
+        box.className = "selbox" + (sel ? " on" : "");
+        box.innerHTML = sel ? "&#10003;" : "";
+        const label = document.createElement("span");
+        label.className = "label";
+        label.textContent = item.name;
+        li.addEventListener("click", () => toggleSelect(cat.id, item.id));
+        li.append(box, label);
+      } else {
+        li.className = "item" + (item.packed ? " done" : "");
+        const check = document.createElement("div");
+        check.className = "check";
+        check.innerHTML = item.packed ? "&#10003;" : "";
+        const label = document.createElement("span");
+        label.className = "label";
+        label.textContent = item.name;
+        const move = document.createElement("button");
+        move.className = "item-move"; move.innerHTML = "&#8644;"; move.title = "Sposta in un'altra categoria";
+        const edit = document.createElement("button");
+        edit.className = "item-edit"; edit.innerHTML = "&#9998;";
+        const del = document.createElement("button");
+        del.className = "del"; del.innerHTML = "&times;";
 
-      check.addEventListener("click", () => togglePacked(cat.id, item.id));
-      label.addEventListener("click", () => togglePacked(cat.id, item.id));
-      edit.addEventListener("click", (e) => { e.stopPropagation(); openRename("item", cat.id, item.id, item.name); });
-      del.addEventListener("click", (e) => { e.stopPropagation(); deleteItem(cat.id, item.id); });
+        check.addEventListener("click", () => togglePacked(cat.id, item.id));
+        label.addEventListener("click", () => togglePacked(cat.id, item.id));
+        move.addEventListener("click", (e) => { e.stopPropagation(); openMove([{ cid: cat.id, iid: item.id }]); });
+        edit.addEventListener("click", (e) => { e.stopPropagation(); openRename("item", cat.id, item.id, item.name); });
+        del.addEventListener("click", (e) => { e.stopPropagation(); deleteItem(cat.id, item.id); });
 
-      li.append(check, label, edit, del);
+        li.append(check, label, move, edit, del);
+      }
       ul.appendChild(li);
     });
     catDiv.appendChild(ul);
@@ -653,6 +767,7 @@ document.getElementById("toastUndo").addEventListener("click", () => {
 
 /* ---------- Header / edit mode ---------- */
 document.getElementById("btnGear").addEventListener("click", () => {
+  if (selectMode) exitSelect();
   editMode = !editMode; document.body.classList.toggle("edit", editMode);
 });
 
@@ -724,7 +839,53 @@ document.getElementById("renameCancel").addEventListener("click", () => { rename
 document.getElementById("renameSave").addEventListener("click", saveRename);
 renameInput.addEventListener("keydown", e => { if (e.key === "Enter") saveRename(); });
 
-[modalItem, modalCat, modalRename].forEach(m => {
+/* ---------- Move / selection ---------- */
+const modalMove = document.getElementById("modalMove");
+const moveCat = document.getElementById("moveCat");
+const moveTitle = document.getElementById("moveTitle");
+const moveBarCount = document.getElementById("moveBarCount");
+const moveBarGo = document.getElementById("moveBarGo");
+let pendingMove = null;
+
+function selKey(cid, iid) { return cid + "|" + iid; }
+function isSelected(cid, iid) { return selected.has(selKey(cid, iid)); }
+function setSelected(cid, iid, on) { const k = selKey(cid, iid); if (on) selected.add(k); else selected.delete(k); }
+function toggleSelect(cid, iid) { setSelected(cid, iid, !isSelected(cid, iid)); updateMoveBar(); render(); }
+function selectedTargets() {
+  return [...selected]
+    .map(k => { const i = k.indexOf("|"); return { cid: k.slice(0, i), iid: k.slice(i + 1) }; })
+    .filter(t => state.cats[t.cid] && state.cats[t.cid].items[t.iid]);
+}
+function updateMoveBar() {
+  const n = selectedTargets().length;
+  moveBarCount.textContent = n + (n === 1 ? " selezionato" : " selezionati");
+  moveBarGo.disabled = n === 0;
+}
+function openMove(targets) {
+  if (!targets || !targets.length) return;
+  const cats = catList();
+  if (cats.length < 2) { alert("Serve almeno un'altra categoria per spostare."); return; }
+  pendingMove = targets.slice();
+  const srcCid = targets[0].cid;
+  moveCat.innerHTML = cats.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join("");
+  const diff = cats.find(c => c.id !== srcCid);
+  moveCat.value = diff ? diff.id : cats[0].id;
+  moveTitle.textContent = targets.length > 1 ? ("Sposta " + targets.length + " oggetti in\u2026") : "Sposta in\u2026";
+  modalMove.classList.add("open");
+}
+function confirmMove() {
+  const targets = pendingMove; pendingMove = null;
+  modalMove.classList.remove("open");
+  if (!targets) return;
+  moveItems(targets, moveCat.value);
+  if (selectMode) exitSelect();
+}
+document.getElementById("moveCancel").addEventListener("click", () => { pendingMove = null; modalMove.classList.remove("open"); });
+document.getElementById("moveConfirm").addEventListener("click", confirmMove);
+moveBarGo.addEventListener("click", () => { const t = selectedTargets(); if (t.length) openMove(t); });
+document.getElementById("moveBarDone").addEventListener("click", () => exitSelect());
+
+[modalItem, modalCat, modalRename, modalMove].forEach(m => {
   m.addEventListener("click", e => { if (e.target === m) m.classList.remove("open"); });
 });
 
@@ -732,22 +893,40 @@ renameInput.addEventListener("keydown", e => { if (e.key === "Enter") saveRename
 const sectionTitle = document.getElementById("sectionTitle");
 const expandAllBtn = document.createElement("button");
 const collapseAllBtn = document.createElement("button");
+const moveModeBtn = document.createElement("button");
 (function makeBulkControls() {
   sectionTitle.textContent = "";
   const label = document.createElement("span"); label.textContent = "Lista completa";
   const controls = document.createElement("div"); controls.className = "bulk-controls";
+  moveModeBtn.type = "button"; moveModeBtn.className = "bulk-btn"; moveModeBtn.textContent = "Sposta";
   expandAllBtn.type = "button"; expandAllBtn.className = "bulk-btn"; expandAllBtn.textContent = "Espandi tutte";
   collapseAllBtn.type = "button"; collapseAllBtn.className = "bulk-btn"; collapseAllBtn.textContent = "Comprimi tutte";
-  controls.append(expandAllBtn, collapseAllBtn);
+  controls.append(moveModeBtn, expandAllBtn, collapseAllBtn);
   sectionTitle.append(label, controls);
 })();
 function refreshBulk() {
   const cats = catList();
   expandAllBtn.disabled = !cats.length || cats.every(c => !c.collapsed);
   collapseAllBtn.disabled = !cats.length || cats.every(c => c.collapsed);
+  moveModeBtn.disabled = cats.length < 2 && !selectMode;
 }
 expandAllBtn.addEventListener("click", () => setAllCollapsed(false));
 collapseAllBtn.addEventListener("click", () => setAllCollapsed(true));
+moveModeBtn.addEventListener("click", () => { if (selectMode) exitSelect(); else enterSelect(); });
+
+function enterSelect() {
+  if (editMode) { editMode = false; document.body.classList.remove("edit"); }
+  selectMode = true; selected.clear();
+  document.body.classList.add("select");
+  moveModeBtn.classList.add("on"); moveModeBtn.textContent = "Fine";
+  render(); updateMoveBar();
+}
+function exitSelect() {
+  selectMode = false; selected.clear();
+  document.body.classList.remove("select");
+  moveModeBtn.classList.remove("on"); moveModeBtn.textContent = "Sposta";
+  render();
+}
 
 /* ---------- Search ---------- */
 const searchInput = document.getElementById("searchInput");

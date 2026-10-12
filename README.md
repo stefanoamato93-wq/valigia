@@ -21,15 +21,25 @@ Live: https://stefanoamato93-wq.github.io/valigia/
   new one (`+ Crea`) into a category you pick.
 - **Add** items with the floating `+` (pick a category) or inline at the bottom
   of each category.
-- **Edit mode** (gear, top right) reveals rename (✎) and delete (🗑) buttons on
-  every item and category, plus **+ Nuova categoria**.
+- **Edit mode** (gear, top right) reveals move (⇄), rename (✎) and delete (🗑)
+  buttons on every item, rename/delete on every category, plus **+ Nuova
+  categoria**.
+- **Move items between categories**, single or in bulk:
+  - *Single:* in edit mode tap the ⇄ button on an item and pick the destination
+    category.
+  - *Bulk:* tap **Sposta** in the list header to enter selection mode. Tap any
+    items (across categories) to select them, or use **Tutti** in a category
+    header to grab the whole category. The bottom bar shows the count and
+    **Sposta in…** opens the destination picker; **Fine** exits. Moving one or
+    many lands them in the chosen category.
 - **Expand / collapse** all categories from the list header.
-- **Undo toast** on every destructive action (delete item, delete category,
-  Metti tutto, Svuota).
+- **Undo toast** on every destructive or bulk action (delete item, delete
+  category, Metti tutto, Svuota, move single/bulk).
 
 The five requested actions map as: **add** (+ FAB / inline / search Crea),
 **remove** (edit mode 🗑 or search 🗑), **modify** (edit mode ✎ rename),
-**mark all as complete** (Metti tutto), **empty** (Svuota).
+**mark all as complete** (Metti tutto), **empty** (Svuota). Plus **move** items
+between categories (edit-mode ⇄ for one, **Sposta** selection mode for bulk).
 
 ## Data model
 
@@ -49,6 +59,11 @@ state = {
 
 - `packed` (boolean) is the only per-item state. Default seed is everything
   `packed: false`.
+- Moving an item keeps its stable `<itemId>` and `packed` state; it just
+  relocates the entry from the source category's `items` to the destination's
+  (with a fresh `order` at the end). `moveItems(targets, destCid)` handles one or
+  many and registers a single undo that restores each item's original category
+  and order.
 - Persisted to `localStorage` under key `valigia_v1`. The "Da mettere" filter
   state is stored separately under `valigia_filter_v1`.
 - First load with no saved state seeds from the `DEFAULT` object (the list taken
