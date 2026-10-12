@@ -66,6 +66,26 @@ groceries Firebase project and add a rule allowing a `valigia` node, or (b)
 create a dedicated Firebase project and drop its config in. The data model is
 already shaped for a keyed Realtime-DB write path.
 
+## Install icon (pin / add to home screen)
+
+The app ships a full icon set so it shows a proper suitcase icon when pinned or
+installed from Chrome, and when added to the iOS home screen:
+
+- `favicon.svg` - vector tab/pin icon (source of truth for the artwork: brand
+  square `#0f6e8c` + white suitcase glyph).
+- `icon-192.png`, `icon-512.png` - PNG icons referenced by the web app manifest
+  (declared `any` and `maskable`; the full-bleed brand background is
+  maskable-safe).
+- `icon-180.png` - `apple-touch-icon` for iOS home screen.
+- `manifest.webmanifest` - PWA manifest (name, `standalone` display,
+  `theme_color`/`background_color` `#0f6e8c`, icon list).
+
+The PNGs are rendered from `favicon.svg` at each size. To regenerate after
+changing the artwork: open the SVG in a browser (or a temp HTML page that
+scales it to the viewport), set the viewport to 512/192/180 and screenshot each,
+or use any SVG-to-PNG tool. Keep the glyph inside the centre ~80% so the
+maskable crop never clips it.
+
 ## Common edits
 
 - **Change the default packing list:** edit the `DEFAULT` object at the top of
