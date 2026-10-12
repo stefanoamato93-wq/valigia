@@ -14,8 +14,15 @@ Live: https://stefanoamato93-wq.github.io/valigia/
   get a check and are greyed out with a strike-through.
 - **Progress** card at the top shows `X / Y in valigia`, a percentage and a
   progress bar (turns green at 100%).
+- **Always-visible completion %** in the sticky header: a percentage pill plus a
+  thin progress bar sit in the top bar, so the overall % stays in view while you
+  scroll the list.
 - **Metti tutto** marks every item packed. **Svuota** empties the suitcase
   (marks everything unpacked) to reset for the next trip. Both are undoable.
+- **Mark a whole category** packed or empty: each category header has a round
+  check toggle. If the category is not fully packed, tapping it packs the whole
+  category; if it is already full, tapping empties it. Undoable. (Always visible,
+  no need to enter edit mode.)
 - **Da mettere** filter (next to the search box) hides packed items and
   fully-packed categories, so you only see what's left.
 - **Search** finds any item fast, lets you toggle it packed, or create a brand
@@ -38,7 +45,7 @@ Live: https://stefanoamato93-wq.github.io/valigia/
     many lands them in the chosen category.
 - **Expand / collapse** all categories from the list header.
 - **Undo toast** on every destructive or bulk action (delete item, delete
-  category, Metti tutto, Svuota, move single/bulk).
+  category, Metti tutto, Svuota, move single/bulk, mark category packed/empty).
 
 The five requested actions map as: **add** (+ FAB / inline / search Crea),
 **remove** (edit mode 🗑 or search 🗑), **modify** (edit mode ✎ rename),
@@ -69,6 +76,10 @@ state = {
 - Category display order follows the category `order` field, which the user
   controls with the ↑ / ↓ arrows in edit mode. `moveCatOrder(cid, dir)` swaps a
   category with its neighbour and reassigns sequential `order` values (0..n-1).
+- `markCategory(cid, val)` sets every item in one category to `packed = val`
+  (used by the per-category round toggle) and registers one undo. `renderProgress`
+  updates both the top progress card and the sticky-header pill/bar (`#hPct`,
+  `#hBar`) from `totals()`.
 - Moving an item keeps its stable `<itemId>` and `packed` state; it just
   relocates the entry from the source category's `items` to the destination's
   (with a fresh `order` at the end). `moveItems(targets, destCid)` handles one or

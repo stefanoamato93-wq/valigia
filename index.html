@@ -47,6 +47,16 @@
     box-shadow: 0 2px 6px rgba(0,0,0,0.12);
   }
   header h1 { font-size: 20px; margin: 0; font-weight: 700; display: flex; align-items: center; gap: 9px; }
+  .head-right { display: flex; align-items: center; gap: 10px; }
+  .hpct {
+    background: rgba(255,255,255,0.2); color: #fff;
+    font-weight: 800; font-size: 14px; padding: 4px 11px; border-radius: 20px;
+    min-width: 46px; text-align: center;
+  }
+  .hpct.done { background: #fff; color: #1a9e5c; }
+  .hbar { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(255,255,255,0.22); }
+  .hbar > span { display: block; height: 100%; width: 0; background: #fff; transition: width .25s ease; }
+  .hbar > span.done { background: #c7f7dd; }
   .gear {
     background: rgba(255,255,255,0.18);
     border: none; color: #fff;
@@ -185,6 +195,15 @@
   }
   .cat-ord:disabled { opacity: .28; }
   body.edit .cat-edit, body.edit .cat-del, body.edit .cat-ord { display: inline-block; }
+  .cat-pack {
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 2px solid #ccd5d8; background: #fff; color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; padding: 0; flex: 0 0 auto;
+  }
+  .cat-pack.on { background: var(--cat-accent, var(--brand)); border-color: var(--cat-accent, var(--brand)); }
+  .cat-pack:disabled { opacity: .4; }
+  body.select .cat-pack { display: none !important; }
   .chevron { color: var(--cat-accent, var(--muted)); transition: transform .15s; font-size: 13px; }
   .category.collapsed .chevron { transform: rotate(-90deg); }
   .category.collapsed .items, .category.collapsed .add-row { display: none; }
@@ -327,7 +346,11 @@
 
 <header>
   <h1><span>&#129523;</span> Valigia</h1>
-  <button class="gear" id="btnGear" title="Modifica">&#9881;</button>
+  <div class="head-right">
+    <span class="hpct" id="hPct">0%</span>
+    <button class="gear" id="btnGear" title="Modifica">&#9881;</button>
+  </div>
+  <div class="hbar"><span id="hBar"></span></div>
 </header>
 
 <!-- PROGRESS -->
@@ -610,6 +633,21 @@ function markAll(val, label) {
     saveLocal(); render();
   });
 }
+function markCategory(cid, val) {
+  const cat = state.cats[cid]; if (!cat) return;
+  const changed = [];
+  Object.keys(cat.items || {}).forEach(iid => {
+    if (!!cat.items[iid].packed !== val) { cat.items[iid].packed = val; changed.push(iid); }
+  });
+  if (!changed.length) return;
+  const name = cat.name;
+  saveLocal(); render();
+  showUndo(val ? ('"' + name + '" tutta in valigia') : ('"' + name + '" svuotata'), () => {
+    const c = state.cats[cid]; if (!c) return;
+    changed.forEach(iid => { if (c.items[iid]) c.items[iid].packed = !val; });
+    saveLocal(); render();
+  });
+}
 function setAllCollapsed(collapsed) {
   let touched = false;
   Object.values(state.cats).forEach(cat => { if (cat.collapsed !== collapsed) { cat.collapsed = collapsed; touched = true; } });
@@ -623,6 +661,8 @@ const pcDone = document.getElementById("pcDone");
 const pcTotal = document.getElementById("pcTotal");
 const pcPct = document.getElementById("pcPct");
 const pcBar = document.getElementById("pcBar");
+const hPct = document.getElementById("hPct");
+const hBar = document.getElementById("hBar");
 
 const categoryPalette = [
   { accent: "#0f6e8c", tint: "#e6f3f6" },
@@ -647,6 +687,10 @@ function renderProgress() {
   const isDone = total > 0 && done === total;
   pcPct.classList.toggle("done", isDone);
   pcBar.classList.toggle("done", isDone);
+  hPct.textContent = pct + "%";
+  hBar.style.width = pct + "%";
+  hPct.classList.toggle("done", isDone);
+  hBar.classList.toggle("done", isDone);
 }
 
 function renderList() {
@@ -702,7 +746,13 @@ function renderList() {
     catDown.className = "cat-ord"; catDown.innerHTML = "&#8595;"; catDown.title = "Sposta gi\u00f9";
     catDown.disabled = index === cats.length - 1;
     catDown.addEventListener("click", (e) => { e.stopPropagation(); moveCatOrder(cat.id, 1); });
-    right.append(catUp, catDown, catSelAll, catEdit, catDel);
+    const catPack = document.createElement("button");
+    catPack.className = "cat-pack" + (allDone ? " on" : "");
+    catPack.innerHTML = allDone ? "&#10003;" : "";
+    catPack.title = allDone ? "Svuota la categoria" : "Metti tutta la categoria in valigia";
+    catPack.disabled = total === 0;
+    catPack.addEventListener("click", (e) => { e.stopPropagation(); markCategory(cat.id, !allDone); });
+    right.append(catPack, catUp, catDown, catSelAll, catEdit, catDel);
 
     head.append(left, right);
     catDiv.appendChild(head);
