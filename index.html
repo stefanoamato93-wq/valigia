@@ -40,14 +40,25 @@
     z-index: 20;
     background: var(--brand);
     color: #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  }
+  .head-top {
     padding: 14px 16px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
   }
   header h1 { font-size: 20px; margin: 0; font-weight: 700; display: flex; align-items: center; gap: 9px; }
   .head-right { display: flex; align-items: center; gap: 10px; }
+  .tabs { display: flex; gap: 6px; padding: 0 12px 12px; }
+  .tab-btn {
+    flex: 1; background: rgba(255,255,255,0.14); color: #fff;
+    border: none; border-radius: 10px; padding: 10px 12px;
+    font: inherit; font-size: 14px; font-weight: 700;
+  }
+  .tab-btn.active { background: #fff; color: var(--brand); }
+  .tab-btn:active { background: rgba(255,255,255,0.28); }
+  .tab-btn.active:active { background: #f0f4f5; }
   .hpct {
     background: rgba(255,255,255,0.2); color: #fff;
     font-weight: 800; font-size: 14px; padding: 4px 11px; border-radius: 20px;
@@ -345,11 +356,14 @@
 <body>
 
 <header>
-  <h1><span>&#129523;</span> Valigia</h1>
-  <div class="head-right">
-    <span class="hpct" id="hPct">0%</span>
-    <button class="gear" id="btnGear" title="Modifica">&#9881;</button>
+  <div class="head-top">
+    <h1><span>&#129523;</span> Valigia</h1>
+    <div class="head-right">
+      <span class="hpct" id="hPct">0%</span>
+      <button class="gear" id="btnGear" title="Modifica">&#9881;</button>
+    </div>
   </div>
+  <div class="tabs" id="tabs"></div>
   <div class="hbar"><span id="hBar"></span></div>
 </header>
 
@@ -459,11 +473,26 @@ const DEFAULT = {
   "Accessori": ["Occhiali da sole","Elastici Palestra","Ombrello","Tappi orecchie","Maschera occhi","Guanti palestra","Maglietta palestra","Preserv Rab","Pulisci AirPods","Marsupio","Borsello","Zaino","Zainetto spiaggia","Scarpe scoglio","Copri zaino","eSim (Revolut)","Cosicchio Sim","Occhialini","Ombrellone","Materassino","Penna","Airtag","Scotch","Lenzuola","Sacco a Pelo","Sacco Lenzuolo","Bastoncini trekking","Borraccia"]
 };
 
-/* Data model (keyed objects with stable IDs):
-   state = { cats: { <catId>: { name, order, collapsed, items: { <itemId>: { name, order, packed } } } } } */
-const KEY = "valigia_v1";
+const DEFAULT_GYM = {
+  "In palestra": ["Pantaloncini","Maglietta","Scarpe","Guantini","Portafoglio (tessera)","Cuffie"],
+  "Per doccia": ["Shampoo","Bagnoschiuma","Lametta","Ciabatte","Deodorante","Asciugamano","Asciugamanino","2 Sacchetti"],
+  "Vestiti": ["Calze","Mutande","Pantaloni","Scarpe","Maglietta","Cintura"],
+  "Addosso": ["Chiavi","Cell","Orologio","Portafoglio","Cuffie"],
+  "Zaino": ["Badge","Cell aziendale","Pc","Caricabatterie","Saponetta Internet","Jabra","Dentifricio","Spazzolino","Integratore","Ombrello"]
+};
+
+/* Data model (keyed objects with stable IDs), now MULTI-LIST (tabs):
+   allData = { lists: { travel: {cats}, gym: {cats} }, active: "<id>" }
+   each list: { cats: { <catId>: { name, order, collapsed, items: { <itemId>: { name, order, packed } } } } }
+   `state` always points at the active list, so state.cats works everywhere below. */
+const KEY = "valigia_v2";
+const OLD_KEY = "valigia_v1";                 // old single-list storage, migrated into the Travel tab
 const FILTER_KEY = "valigia_filter_v1";
-let state = loadOrSeed();
+const TAB_DEFS = [{ id: "travel", label: "Travel" }, { id: "gym", label: "Gym" }];
+
+let allData = loadAll();
+let activeId = (allData.active && allData.lists[allData.active]) ? allData.active : "travel";
+let state = allData.lists[activeId];
 let editMode = false;
 let onlyTodo = loadFilter();
 let searchRefresh = null;
@@ -472,20 +501,28 @@ const selected = new Set(); // selection keys "cid|iid"
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
-/* ---------- Persistence ---------- */
-function loadOrSeed() {
-  try { const raw = localStorage.getItem(KEY); if (raw) return normalize(JSON.parse(raw)); } catch (e) {}
-  return seed();
+/* ---------- Persistence (multi-list) ---------- */
+function loadAll() {
+  try { const raw = localStorage.getItem(KEY); if (raw) return normalizeAll(JSON.parse(raw)); } catch (e) {}
+  // first run on v2: migrate the old single list into the Travel tab, add Gym
+  let travel = null;
+  try {
+    const old = localStorage.getItem(OLD_KEY);
+    if (old) { const t = normalize(JSON.parse(old)); if (Object.keys(t.cats).length) travel = t; }
+  } catch (e) {}
+  const d = { lists: { travel: travel || seedFrom(DEFAULT), gym: seedFrom(DEFAULT_GYM) }, active: "travel" };
+  try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) {}
+  return d;
 }
-function saveLocal() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+function saveLocal() { try { allData.active = activeId; localStorage.setItem(KEY, JSON.stringify(allData)); } catch (e) {} }
 function loadFilter() { try { return localStorage.getItem(FILTER_KEY) === "1"; } catch (e) { return false; } }
 function saveFilter() { try { localStorage.setItem(FILTER_KEY, onlyTodo ? "1" : "0"); } catch (e) {} }
 
-function seed() {
+function seedFrom(def) {
   const cats = {};
-  Object.keys(DEFAULT).forEach((name, ci) => {
+  Object.keys(def).forEach((name, ci) => {
     const items = {};
-    DEFAULT[name].forEach((n, ii) => { items[uid()] = { name: n, order: ii, packed: false }; });
+    def[name].forEach((n, ii) => { items[uid()] = { name: n, order: ii, packed: false }; });
     cats[uid()] = { name, order: ci, collapsed: false, items };
   });
   return { cats };
@@ -503,8 +540,17 @@ function normalize(s) {
     });
     cats[cid] = { name: String(c.name || ""), order: Number(c.order) || 0, collapsed: !!c.collapsed, items };
   });
-  if (!Object.keys(cats).length) return seed();
   return { cats };
+}
+function normalizeAll(d) {
+  const lists = (d && d.lists) || {};
+  const out = { lists: {}, active: "travel" };
+  if (lists.travel) out.lists.travel = normalize(lists.travel);
+  if (lists.gym) out.lists.gym = normalize(lists.gym);
+  if (!out.lists.travel) out.lists.travel = seedFrom(DEFAULT);
+  if (!out.lists.gym) out.lists.gym = seedFrom(DEFAULT_GYM);
+  out.active = (d && d.active && out.lists[d.active]) ? d.active : "travel";
+  return out;
 }
 
 /* ---------- Sorted views ---------- */
@@ -847,6 +893,29 @@ document.getElementById("btnGear").addEventListener("click", () => {
   editMode = !editMode; document.body.classList.toggle("edit", editMode);
 });
 
+/* ---------- Tabs (Travel / Gym) ---------- */
+const tabsEl = document.getElementById("tabs");
+function renderTabs() {
+  tabsEl.innerHTML = "";
+  TAB_DEFS.forEach(t => {
+    const b = document.createElement("button");
+    b.className = "tab-btn" + (t.id === activeId ? " active" : "");
+    b.textContent = t.label;
+    b.addEventListener("click", () => switchTab(t.id));
+    tabsEl.appendChild(b);
+  });
+}
+function switchTab(id) {
+  if (!allData.lists[id] || id === activeId) return;
+  if (selectMode) exitSelect();
+  if (editMode) { editMode = false; document.body.classList.remove("edit"); }
+  activeId = id;
+  state = allData.lists[id];
+  saveLocal();
+  renderTabs();
+  render();
+}
+
 /* ---------- Progress actions ---------- */
 document.getElementById("btnAll").addEventListener("click", () => markAll(true, "Tutto in valigia"));
 document.getElementById("btnEmpty").addEventListener("click", () => markAll(false, "Valigia svuotata"));
@@ -1083,6 +1152,7 @@ searchInput.addEventListener("input", renderSearch);
 searchClear.addEventListener("click", () => { searchInput.value = ""; renderSearch(); searchInput.focus(); });
 searchRefresh = renderSearch;
 
+renderTabs();
 render();
 </script>
 </body>

@@ -1,15 +1,20 @@
 # Valigia
 
-A mobile-first packing checklist for frequent travel. Single self-contained
-`index.html` (no build step, no backend). Seeded from the Google packing sheet.
+A mobile-first packing checklist. Single self-contained `index.html` (no build
+step, no backend). Two independent lists live as tabs: **Travel** (seeded from
+the Google packing sheet) and **Gym**.
 
 Live: https://stefanoamato93-wq.github.io/valigia/
 
 ## What it does
 
+- **Two tabs — Travel and Gym** in the sticky header. Each tab is its own
+  independent checklist (own categories, items, packed state and completion %).
+  The active tab is remembered between sessions.
 - **Categorised checklist** of everything to pack, grouped into categories
-  (Viaggio, Vestiti, Bagno, Tech, Accessori by default). Items inside each
-  category are always shown in alphabetical order (default sort).
+  (Travel: Viaggio, Vestiti, Bagno, Tech, Accessori; Gym: In palestra, Per
+  doccia, Vestiti, Addosso, Zaino). Items inside each category are always shown
+  in alphabetical order (default sort).
 - **Tap an item** (circle or label) to mark it packed / unpacked. Packed items
   get a check and are greyed out with a strike-through.
 - **Progress** card at the top shows `X / Y in valigia`, a percentage and a
@@ -55,18 +60,23 @@ between categories (edit-mode ⇄ for one, **Sposta** selection mode for bulk).
 ## Data model
 
 Keyed objects with stable IDs (so single fields can be rewritten without
-clobbering the whole list):
+clobbering the whole list). The top level holds one list per tab:
 
 ```
-state = {
-  cats: {
-    <catId>: {
-      name, order, collapsed,
-      items: { <itemId>: { name, order, packed } }
-    }
+allData = {
+  active: "travel" | "gym",
+  lists: {
+    travel: { cats: { <catId>: { name, order, collapsed,
+                                 items: { <itemId>: { name, order, packed } } } } },
+    gym:    { cats: { ... same shape ... } }
   }
 }
 ```
+
+`state` always points at `allData.lists[activeId]`, so every operation below
+works on `state.cats` exactly as in the single-list version. Switching tabs
+re-points `state` and re-renders. Tabs are a fixed set (`TAB_DEFS`): Travel and
+Gym.
 
 - `packed` (boolean) is the only per-item state. Default seed is everything
   `packed: false`.
@@ -85,10 +95,14 @@ state = {
   (with a fresh `order` at the end). `moveItems(targets, destCid)` handles one or
   many and registers a single undo that restores each item's original category
   and order.
-- Persisted to `localStorage` under key `valigia_v1`. The "Da mettere" filter
-  state is stored separately under `valigia_filter_v1`.
-- First load with no saved state seeds from the `DEFAULT` object (the list taken
-  from the Google sheet). After that, the saved state wins.
+- Persisted to `localStorage` under key `valigia_v2` (the whole `allData`). The
+  "Da mettere" filter state is stored separately under `valigia_filter_v1` and is
+  shared across tabs.
+- **Migration:** on first run with no `valigia_v2`, the app reads the old
+  single-list key `valigia_v1` and makes it the **Travel** tab (so existing data
+  carries over untouched), then adds a fresh **Gym** tab. If there is no old data
+  either, Travel seeds from `DEFAULT` and Gym from `DEFAULT_GYM`. `valigia_v1` is
+  left in place, not deleted.
 
 ## Storage / sync
 
@@ -124,14 +138,18 @@ maskable crop never clips it.
 
 ## Common edits
 
-- **Change the default packing list:** edit the `DEFAULT` object at the top of
-  the `<script>` in `index.html`. Only affects a fresh browser (existing saved
-  state is not overwritten); clear `localStorage` key `valigia_v1` to re-seed.
+- **Change the default lists:** edit `DEFAULT` (Travel) or `DEFAULT_GYM` (Gym) at
+  the top of the `<script>` in `index.html`. Defaults only apply on a fresh
+  browser (existing saved state is not overwritten); clear `localStorage` keys
+  `valigia_v2` (and `valigia_v1`) to re-seed.
+- **Add another tab:** add an entry to `TAB_DEFS` (`{ id, label }`), add a
+  matching default object, and seed/normalise it in `loadAll` / `normalizeAll`
+  the same way `gym` is handled.
 - **Rename categories / add categories:** do it in the app (edit mode), or edit
-  `DEFAULT`.
+  the relevant `DEFAULT*` object.
 - **Colours:** `--brand` / `--brand-dark` CSS vars for the theme; per-category
   accent colours come from `categoryPalette`.
-- **Change the storage key:** `KEY` / `FILTER_KEY` constants.
+- **Change the storage key:** `KEY` / `OLD_KEY` / `FILTER_KEY` constants.
 
 ## Deploy
 
