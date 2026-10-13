@@ -48,7 +48,10 @@ Live: https://stefanoamato93-wq.github.io/valigia/
     header to grab the whole category. The bottom bar shows the count and
     **Sposta in…** opens the destination picker; **Fine** exits. Moving one or
     many lands them in the chosen category.
-- **Expand / collapse** all categories from the list header.
+- **Expand / collapse** all categories from the list header. Each expanded
+  category also has a **▲ Chiudi categoria** button at its bottom (below the add
+  row): tap it when you reach the end of a long category to collapse it and jump
+  its header up under the sticky bar (`collapseFromBottom`).
 - **Undo toast** on every destructive or bulk action (delete item, delete
   category, Metti tutto, Svuota, move single/bulk, mark category packed/empty).
 
@@ -150,7 +153,7 @@ maskable crop never clips it.
 - **Colours:** `--brand` / `--brand-dark` CSS vars for the theme; per-category
   accent colours come from `categoryPalette`.
 - **Change the storage key:** `KEY` / `OLD_KEY` / `FILTER_KEY` constants.
-- **Undo toast timing / position:** auto-dismiss is `3000` ms in `showUndo`; the
+- **Undo toast timing / position:** auto-dismiss is `1500` ms in `showUndo`; the
   on-screen position is the `bottom` of the `.toast` CSS rule (currently near the
   bottom of the screen, `16px` + safe-area).
 

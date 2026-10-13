@@ -217,7 +217,7 @@
   body.select .cat-pack { display: none !important; }
   .chevron { color: var(--cat-accent, var(--muted)); transition: transform .15s; font-size: 13px; }
   .category.collapsed .chevron { transform: rotate(-90deg); }
-  .category.collapsed .items, .category.collapsed .add-row { display: none; }
+  .category.collapsed .items, .category.collapsed .add-row, .category.collapsed .cat-foot { display: none; }
 
   .items { list-style: none; margin: 0; padding: 0; }
   .item {
@@ -296,6 +296,19 @@
     border-radius: 8px; padding: 0 18px; font-size: 22px; font-weight: 600;
   }
   .add-row button:active { background: var(--brand-dark); }
+
+  .cat-foot {
+    display: flex; justify-content: center;
+    padding: 6px 14px 12px; background: #fafbfc;
+  }
+  .cat-foot button {
+    background: none; border: none; color: var(--muted);
+    font: inherit; font-size: 13px; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 7px; padding: 7px 14px;
+    border-radius: 8px;
+  }
+  .cat-foot button:active { color: var(--brand); background: #eef2f3; }
+  body.select .cat-foot { display: none; }
 
   .add-cat-btn {
     display: none; margin: 6px 10px 0; width: calc(100% - 20px);
@@ -652,6 +665,19 @@ function toggleCollapse(cid) {
   const cat = state.cats[cid]; if (!cat) return;
   cat.collapsed = !cat.collapsed; saveLocal(); render();
 }
+function collapseFromBottom(cid) {
+  const cat = state.cats[cid]; if (!cat || cat.collapsed) return;
+  cat.collapsed = true; saveLocal(); render();
+  // after re-render, bring the now-collapsed category header just under the sticky header
+  requestAnimationFrame(() => {
+    const el = document.querySelector('.category[data-cid="' + cid + '"]');
+    if (!el) return;
+    const header = document.querySelector("header");
+    const offset = (header ? header.offsetHeight : 0) + 6;
+    const y = el.getBoundingClientRect().top + window.scrollY - offset;
+    window.scrollTo({ top: y < 0 ? 0 : y, behavior: "smooth" });
+  });
+}
 function moveCatOrder(cid, dir) {
   const cats = catList();                 // sorted by current order
   const idx = cats.findIndex(c => c.id === cid);
@@ -753,6 +779,7 @@ function renderList() {
 
     const catDiv = document.createElement("div");
     catDiv.className = "category" + (cat.collapsed ? " collapsed" : "");
+    catDiv.dataset.cid = cat.id;
     catDiv.style.setProperty("--cat-accent", palette.accent);
     catDiv.style.setProperty("--cat-tint", palette.tint);
 
@@ -856,6 +883,14 @@ function renderList() {
     addRow.append(inp, addBtn);
     catDiv.appendChild(addRow);
 
+    const foot = document.createElement("div");
+    foot.className = "cat-foot";
+    const closeBtn = document.createElement("button");
+    closeBtn.innerHTML = "&#9650; Chiudi categoria";
+    closeBtn.addEventListener("click", () => collapseFromBottom(cat.id));
+    foot.appendChild(closeBtn);
+    catDiv.appendChild(foot);
+
     listEl.appendChild(catDiv);
   });
 
@@ -881,7 +916,7 @@ function showUndo(msg, fn) {
   toastMsg.textContent = msg;
   toast.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { toast.classList.remove("show"); undoFn = null; }, 3000);
+  toastTimer = setTimeout(() => { toast.classList.remove("show"); undoFn = null; }, 1500);
 }
 document.getElementById("toastUndo").addEventListener("click", () => {
   const fn = undoFn; undoFn = null; toast.classList.remove("show"); if (fn) fn();
