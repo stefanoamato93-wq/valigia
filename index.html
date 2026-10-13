@@ -332,7 +332,7 @@
   .btn-ghost { background: #eef1f2; color: var(--text); }
 
   .toast {
-    position: fixed; left: 50%; bottom: 86px;
+    position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom));
     transform: translateX(-50%) translateY(20px);
     background: #1b2224; color: #fff; border-radius: 12px;
     padding: 12px 14px; display: flex; align-items: center; gap: 14px;
@@ -881,7 +881,7 @@ function showUndo(msg, fn) {
   toastMsg.textContent = msg;
   toast.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { toast.classList.remove("show"); undoFn = null; }, 6000);
+  toastTimer = setTimeout(() => { toast.classList.remove("show"); undoFn = null; }, 3000);
 }
 document.getElementById("toastUndo").addEventListener("click", () => {
   const fn = undoFn; undoFn = null; toast.classList.remove("show"); if (fn) fn();

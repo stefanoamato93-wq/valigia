@@ -150,6 +150,9 @@ maskable crop never clips it.
 - **Colours:** `--brand` / `--brand-dark` CSS vars for the theme; per-category
   accent colours come from `categoryPalette`.
 - **Change the storage key:** `KEY` / `OLD_KEY` / `FILTER_KEY` constants.
+- **Undo toast timing / position:** auto-dismiss is `3000` ms in `showUndo`; the
+  on-screen position is the `bottom` of the `.toast` CSS rule (currently near the
+  bottom of the screen, `16px` + safe-area).
 
 ## Deploy
 
